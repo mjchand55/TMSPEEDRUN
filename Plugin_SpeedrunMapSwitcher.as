@@ -14,6 +14,11 @@ string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
 uint map_counter = 0;
 
+int release_month = 7;
+int release_year = 2020;
+int current_month;
+int current_year;
+
 dictionary months = {
 	{'march2021', "1"}, 
 	{'february2021', "2"}, 
@@ -47,13 +52,14 @@ void Main()
 {	
 	@current_campaign = Campaign();
 	@previous_campaign = Campaign();
+	GenerateMonthDict();
 	auto app = cast<CTrackMania>(GetApp());
 	while (app is null) {
 		yield();
 	}
 	while (true) {
 		if(campaign_in_progress) {				
-			CSmArenaClient@ playground = cast<CSmArenaClient>(GetApp().CurrentPlayground);		
+			CSmArenaClient@ playground = cast<CSmArenaClient>(GetApp().CurrentPlayground);
 			if(playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
 				GoToNextMap();
 			}
@@ -266,6 +272,45 @@ void RenderInterface() {
 		UI::EndTabBar();
 	}
 	UI::End();
+}
+
+void GenerateMonthDict() {
+	current_month = Text::ParseInt(Time::FormatString("%m"));
+	current_year = Text::ParseInt(Time::FormatString("%Y"));
+
+	auto diff = current_month - release_month + (12 * (current_year - release_year));
+	
+	for(int j = diff, dict_counter = 0; j > 0; j--, dict_counter++) {
+		print("j" + j);
+		print("dict_counter" + dict_counter);
+		if(dict_counter == 0) {
+			months["july2020"] = "" + j;
+		}
+		if(dict_counter == 1) {
+			months["august2020"] = "" + j;
+		}
+		if(dict_counter == 2) {
+			months["september2020"] = "" + j;
+		}
+		if(dict_counter == 3) {
+			months["october2020"] = "" + j;
+		}
+		if(dict_counter == 4) {
+			months["november2020"] = "" + j;
+		}
+		if(dict_counter == 5) {
+			months["december2020"] = "" + j;
+		}
+		if(dict_counter == 6) {
+			months["january2021"] = "" + j;
+		}
+		if(dict_counter == 7) {
+			months["february2021"] = "" + j;
+		}
+		if(dict_counter == 8) {
+			months["march2021"] = "" + j;
+		}
+	}
 }
 
 void GoToNextMap() {
