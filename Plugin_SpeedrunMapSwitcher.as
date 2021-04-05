@@ -2,12 +2,14 @@
 #author "Glocom"
 #category "Interactive"  
 #include "Icons.as"
+#include "Formatting.as"
 #version "1.2.0"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
 bool preload_cache = false;
 bool download_notification_shown = false;
+bool auto_next_map = true;
 
 enum CampaignMode {
 	Idle,
@@ -41,10 +43,32 @@ dictionary months = {
 	{'july2020', "9"}
 };
 
-array<string> campaign_urls;
+array<MapInfo@> campaign_maps;
 
 class Campaign {
 	array<string> campaign_ids;
+}
+
+class MapInfo {
+	string author;
+	string name;
+	int author_score;
+	int gold_score;
+	int silver_score;
+	int bronze_score;
+	string collection_name;
+	string environment;
+	string filename;
+	bool is_playable;
+	string map_id;
+	string map_uid;
+	string submitter;
+	string timestamp;
+	string file_url;
+	string thumbnail_url;
+	string author_displayname;
+	string submitter_displayname;
+	int exchange_id;
 }
 
 Campaign@ current_campaign;
@@ -53,7 +77,7 @@ Campaign@ previous_campaign;
 
 void RenderMenu()
 {
-	if(UI::MenuItem("Speedrun map switcher", "", menu_visibility)) {
+	if(UI::MenuItem(Icons::Trophy + " Speedrun map switcher", "", menu_visibility)) {
 		menu_visibility = !menu_visibility;	
 	}
 }
@@ -75,13 +99,12 @@ void Main()
 					GoToNextMap();
 				} else {
 					if(!download_notification_shown) {
-						print("Waiting for download of assets for map #" + map_counter + " - URL: "+ campaign_urls[map_counter-1]);
-						UI::ShowNotification("Downloading assets for map # " + map_counter + "/" + campaign_urls.get_Length(), 10000);
+						UI::ShowNotification("Downloading assets for map # " + map_counter + "/" + campaign_maps.get_Length(), 10000);
 						download_notification_shown = true;
 					}
 				}
 			}
-			else if(playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
+			else if(auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
 				GoToNextMap();
 			}
 		}
@@ -107,6 +130,9 @@ void RenderInterface() {
 		}		
 		UI::SameLine();
 		preload_cache = UI::Checkbox("Preload Cache", preload_cache);
+		
+		UI::SameLine();
+		auto_next_map = UI::Checkbox("Auto load next map", auto_next_map);
 			
 		UI::Separator();
 		UI::BeginTabBar("Category tabs");
@@ -345,15 +371,14 @@ void GoToNextMap() {
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
 			yield();
 		}
-		if(map_counter < campaign_urls.get_Length()) {			
-			print("Going to next map with url: " + campaign_urls[map_counter]);
-			app.ManiaTitleControlScriptAPI.PlayMap(campaign_urls[map_counter], "", "");
-			map_counter++;
+		if(map_counter < campaign_maps.get_Length()) {			
+			app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
 			if(preload_cache) {
 				download_notification_shown = false;
 			} else {
-				UI::ShowNotification("Track number: " + map_counter + "/" + campaign_urls.get_Length(), 10000);
+				UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[map_counter].name) + " (" + (map_counter+1) + "/" + campaign_maps.get_Length() + ")", 10000);
 			}
+			map_counter++;
 		}
 		else {
 			if(preload_cache) {
@@ -394,14 +419,17 @@ void StartCampaign() {
 		}
 
 		if(!use_cache) {	
-			if(campaign_urls.get_Length() > 0) {
-				campaign_urls = {};
+			if(campaign_maps.get_Length() > 0) {
+				campaign_maps = {};
 			}
 			for(uint i = 0; i < current_campaign.campaign_ids.get_Length(); i++) {
 				FetchCampaign(current_campaign.campaign_ids[i]);
 			}			
 		}
-		app.ManiaTitleControlScriptAPI.PlayMap(campaign_urls[map_counter], "", "");
+		app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
+		if(!preload_cache) {
+			UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[map_counter].name) + " (" + (map_counter+1) + "/" + campaign_maps.get_Length() + ")", 10000);
+		}
 		map_counter++;
 		campaign_in_progress = true;
 	}
@@ -413,43 +441,62 @@ void FetchCampaign(string campaignId) {
 		Json::Value maps = Json::Parse(response);
 
 		for (uint i = 0; i < maps["days"].get_Length(); i++) {
-			string url = maps["days"][i]["map"]["fileUrl"];
-			campaign_urls.InsertLast(url);
+			MapInfo@ newmap = MapInfo();
+			newmap.author = maps["days"][i]["map"]["author"];
+			newmap.name = maps["days"][i]["map"]["name"];
+			newmap.author_score = maps["days"][i]["map"]["authorScore"];
+			newmap.gold_score = maps["days"][i]["map"]["goldScore"];
+			newmap.silver_score = maps["days"][i]["map"]["silverScore"];
+			newmap.bronze_score = maps["days"][i]["map"]["bronzeScore"];
+			newmap.collection_name = maps["days"][i]["map"]["collectionName"];
+			newmap.environment = maps["days"][i]["map"]["environment"];
+			newmap.filename = maps["days"][i]["map"]["filename"];
+			newmap.is_playable = maps["days"][i]["map"]["isPlayable"];
+			newmap.map_id = maps["days"][i]["map"]["mapId"];
+			newmap.map_uid = maps["days"][i]["map"]["mapUid"];
+			newmap.submitter = maps["days"][i]["map"]["submitter"];
+			newmap.timestamp = maps["days"][i]["map"]["timestamp"];
+			newmap.file_url = maps["days"][i]["map"]["fileUrl"];
+			newmap.thumbnail_url = maps["days"][i]["map"]["thumbnailUrl"];
+			newmap.author_displayname = maps["days"][i]["map"]["authordisplayname"];
+			newmap.submitter_displayname = maps["days"][i]["map"]["submitterdisplayname"];
+			newmap.exchange_id = maps["days"][i]["map"]["exchangeid"];
+			campaign_maps.InsertLast(newmap);
 		}
 	} else if(current_mode == CampaignMode::Season) {		
 		string response = SendReq("https://trackmania.io/api/officialcampaign/" + campaignId, false);
 		Json::Value maps = Json::Parse(response);
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
-			string url = maps["playlist"][i]["fileUrl"];
-			campaign_urls.InsertLast(url);
+			MapInfo@ newmap = MapInfo();
+			newmap.author = maps["playlist"][i]["author"];
+			newmap.name = maps["playlist"][i]["name"];
+			newmap.author_score = maps["playlist"][i]["authorScore"];
+			newmap.gold_score = maps["playlist"][i]["goldScore"];
+			newmap.silver_score = maps["playlist"][i]["silverScore"];
+			newmap.bronze_score = maps["playlist"][i]["bronzeScore"];
+			newmap.collection_name = maps["playlist"][i]["collectionName"];
+			newmap.environment = maps["playlist"][i]["environment"];
+			newmap.filename = maps["playlist"][i]["filename"];
+			newmap.is_playable = maps["playlist"][i]["isPlayable"];
+			newmap.map_id = maps["playlist"][i]["mapId"];
+			newmap.map_uid = maps["playlist"][i]["mapUid"];
+			newmap.submitter = maps["playlist"][i]["submitter"];
+			newmap.timestamp = maps["playlist"][i]["timestamp"];
+			newmap.file_url = maps["playlist"][i]["fileUrl"];
+			newmap.thumbnail_url = maps["playlist"][i]["thumbnailUrl"];
+			newmap.author_displayname = maps["playlist"][i]["authordisplayname"];
+			newmap.submitter_displayname = maps["playlist"][i]["submitterdisplayname"];
+			newmap.exchange_id = maps["playlist"][i]["exchangeid"];
+			campaign_maps.InsertLast(newmap);
 		}
 	} else if(current_mode == CampaignMode::Training) {		
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 01.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 02.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 03.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 04.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 05.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 06.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 07.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 08.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 09.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 10.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 11.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 12.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 13.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 14.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 15.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 16.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 17.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 18.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 19.Map.Gbx");	
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 20.Map.Gbx");
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 21.Map.Gbx");
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 22.Map.Gbx");
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 23.Map.Gbx");
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 24.Map.Gbx");
-		campaign_urls.InsertLast("Campaigns\\Training\\Training - 25.Map.Gbx");
+		for (uint i = 1; i <= 25; i++) {
+			MapInfo@ newmap = MapInfo();		
+			newmap.file_url = "Campaigns\\Training\\Training - " + Text::Format("%02d", i) + ".Map.Gbx";
+			newmap.name = "Training - " + Text::Format("%02d", i);
+			campaign_maps.InsertLast(newmap);
+		}
 	}
 }
 
