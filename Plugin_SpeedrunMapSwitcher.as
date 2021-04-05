@@ -6,6 +6,9 @@
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
+bool preload_cache = false;
+bool download_notification_shown = false;
+
 enum CampaignMode {
 	Idle,
 	Training,
@@ -66,8 +69,19 @@ void Main()
 	}
 	while (true) {
 		if(campaign_in_progress) {				
-			CSmArenaClient@ playground = cast<CSmArenaClient>(GetApp().CurrentPlayground);
-			if(playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
+			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
+			if(preload_cache) {
+				if (playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
+					GoToNextMap();
+				} else {
+					if(!download_notification_shown) {
+						print("Waiting for download of assets for map #" + map_counter + " - URL: "+ campaign_urls[map_counter-1]);
+						UI::ShowNotification("Downloading assets for map # " + map_counter + "/" + campaign_urls.get_Length(), 10000);
+						download_notification_shown = true;
+					}
+				}
+			}
+			else if(playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
 				GoToNextMap();
 			}
 		}
@@ -90,7 +104,9 @@ void RenderInterface() {
 		if (UI::Button("Abort speedrun")) {
 			campaign_in_progress = false;
 			app.BackToMainMenu();
-		}
+		}		
+		UI::SameLine();
+		preload_cache = UI::Checkbox("Preload Cache", preload_cache);
 			
 		UI::Separator();
 		UI::BeginTabBar("Category tabs");
@@ -325,19 +341,33 @@ void GenerateMonthDict() {
 void GoToNextMap() {
 	if(campaign_in_progress) {
 		CTrackMania@ app = cast<CTrackMania>(GetApp());
-		print("Going to next map with url: " + campaign_urls[map_counter]);
 		app.BackToMainMenu();
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
 			yield();
 		}
-		if(map_counter < campaign_urls.get_Length()) {
+		if(map_counter < campaign_urls.get_Length()) {			
+			print("Going to next map with url: " + campaign_urls[map_counter]);
 			app.ManiaTitleControlScriptAPI.PlayMap(campaign_urls[map_counter], "", "");
 			map_counter++;
+			if(preload_cache) {
+				download_notification_shown = false;
+			} else {
+				UI::ShowNotification("Track number: " + map_counter + "/" + campaign_urls.get_Length(), 10000);
+			}
 		}
 		else {
-			print("End of campaign");
-			campaign_in_progress = false;
-			current_mode = CampaignMode::Idle;
+			if(preload_cache) {
+				print("Cache downloaded, restarting the campaign for the speedrun");
+				UI::ShowNotification("Restarting the speedrun. Good luck on your run!", 10000);
+				preload_cache = false;
+				map_counter = 0;
+				GoToNextMap();
+			} else {
+				print("End of campaign");
+				campaign_in_progress = false;
+				preload_cache = false;
+				current_mode = CampaignMode::Idle;
+			}
 		}
 	}
 }
