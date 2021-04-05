@@ -371,7 +371,8 @@ void GoToNextMap() {
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
 			yield();
 		}
-		if(map_counter < campaign_maps.get_Length()) {			
+		if(map_counter < campaign_maps.get_Length()) {		
+			print("Loading map " + (map_counter+1) + ": " +  StripFormatCodes(campaign_maps[map_counter].name));	
 			app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
 			if(preload_cache) {
 				download_notification_shown = false;
@@ -425,7 +426,8 @@ void StartCampaign() {
 			for(uint i = 0; i < current_campaign.campaign_ids.get_Length(); i++) {
 				FetchCampaign(current_campaign.campaign_ids[i]);
 			}			
-		}
+		}		
+		print("Loading map " + (map_counter+1) + ": " +  StripFormatCodes(campaign_maps[map_counter].name));	
 		app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
 		if(!preload_cache) {
 			UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[map_counter].name) + " (" + (map_counter+1) + "/" + campaign_maps.get_Length() + ")", 10000);
