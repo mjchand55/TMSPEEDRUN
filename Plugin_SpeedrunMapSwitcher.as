@@ -2,11 +2,18 @@
 #author "Glocom"
 #category "Interactive"  
 #include "Icons.as"
-#version "1.1.0"
+#version "1.2.0"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
-bool is_totd_campaign = false;
+enum CampaignMode {
+	Idle,
+	Training,
+	Season,
+	Totd
+}
+
+CampaignMode current_mode = CampaignMode::Idle;
 
 string summer_2020_campaign_id = "130";
 string fall_2020_campaign_id = "4791";
@@ -89,9 +96,13 @@ void RenderInterface() {
 		UI::BeginTabBar("Category tabs");
 		if (UI::BeginTabItem(Icons::FirstAid + " Training")) {
 			UI::BeginChild("Training");
-			UI::Text("NOT YET IMPLEMENTED");
 			if (UI::Button("Start training")) {
 				print("Starting Training speedrun");
+				current_mode = CampaignMode::Training;
+				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+				current_campaign.campaign_ids = {};
+				current_campaign.campaign_ids.InsertLast("Training");				
+				startnew(StartCampaign);
 			}
 			UI::EndChild();
 			UI::EndTabItem();
@@ -101,7 +112,7 @@ void RenderInterface() {
 			UI::BeginChild("Seasonal Campaign");	
 			if (UI::Button("Spring 2021")) {
 				print("Starting Spring 2021 speedrun");
-				is_totd_campaign = false;
+				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);				
@@ -110,7 +121,7 @@ void RenderInterface() {
 			UI::SameLine();					
 			if (UI::Button("Winter 2021")) {
 				print("Starting Winter 2021 speedrun");
-				is_totd_campaign = false;
+				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);				
@@ -120,7 +131,7 @@ void RenderInterface() {
 			
 			if (UI::Button("Fall 2020")) {
 				print("Starting Fall 2020 speedrun");
-				is_totd_campaign = false;
+				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);			
@@ -130,7 +141,7 @@ void RenderInterface() {
 			UI::SameLine();					
 			if (UI::Button("Summer 2020")) {
 				print("Starting Summer 2020 speedrun");
-				is_totd_campaign = false;
+				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);			
@@ -146,7 +157,7 @@ void RenderInterface() {
 			//TODO make dynamic		
 			if (UI::Button("March 2021")) {
 				print("Starting March 2021 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['march2021']));			
@@ -156,7 +167,7 @@ void RenderInterface() {
 			UI::SameLine();					
 			if (UI::Button("February 2021")) {
 				print("Starting February 2021 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['february2021']));			
@@ -166,7 +177,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("January 2021")) {
 				print("Starting January 2021 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['january2021']));			
@@ -176,7 +187,7 @@ void RenderInterface() {
 			
 			if (UI::Button("December 2020")) {
 				print("Starting December 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['december2020']));			
@@ -186,7 +197,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("November 2020")) {
 				print("Starting November 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['november2020']));			
@@ -196,7 +207,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("October 2020")) {
 				print("Starting October 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['october2020']));			
@@ -206,7 +217,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("September 2020")) {
 				print("Starting September 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['september2020']));			
@@ -216,7 +227,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("August 2020")) {
 				print("Starting August 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['august2020']));			
@@ -226,7 +237,7 @@ void RenderInterface() {
 			UI::SameLine();
 			if (UI::Button("July 2020")) {
 				print("Starting July 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['july2020']));			
@@ -241,7 +252,7 @@ void RenderInterface() {
 			UI::BeginChild("All Seasons");
 			if (UI::Button("2020")) {
 				print("Starting All Seasons 2020 speedrun");	
-				is_totd_campaign = false;
+				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;			
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
@@ -255,7 +266,7 @@ void RenderInterface() {
 			UI::BeginChild("All TOTDs");		
 			if (UI::Button("2020")) {
 				print("Starting All TOTDs 2020 speedrun");
-				is_totd_campaign = true;
+				current_mode = CampaignMode::Totd;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(string(months['july2020']));	
@@ -281,8 +292,6 @@ void GenerateMonthDict() {
 	auto diff = current_month - release_month + (12 * (current_year - release_year));
 	
 	for(int j = diff, dict_counter = 0; j > 0; j--, dict_counter++) {
-		print("j" + j);
-		print("dict_counter" + dict_counter);
 		if(dict_counter == 0) {
 			months["july2020"] = "" + j;
 		}
@@ -328,12 +337,13 @@ void GoToNextMap() {
 		else {
 			print("End of campaign");
 			campaign_in_progress = false;
+			current_mode = CampaignMode::Idle;
 		}
 	}
 }
 
 void StartCampaign() {	
-	if(current_campaign.campaign_ids.get_Length() > 0) {		
+	if(current_campaign.campaign_ids.get_Length() > 0) {	
 		map_counter = 0;
 		CTrackMania@ app = cast<CTrackMania>(GetApp());
 		app.BackToMainMenu();
@@ -353,7 +363,7 @@ void StartCampaign() {
 			use_cache = false;
 		}
 
-		if(!use_cache) {			
+		if(!use_cache) {	
 			if(campaign_urls.get_Length() > 0) {
 				campaign_urls = {};
 			}
@@ -368,7 +378,7 @@ void StartCampaign() {
 }
 
 void FetchCampaign(string campaignId) {
-	if(is_totd_campaign) {
+	if(current_mode == CampaignMode::Totd) {
 		string response = SendReq("https://trackmania.io/api/totd/" + campaignId, false);
 		Json::Value maps = Json::Parse(response);
 
@@ -376,7 +386,7 @@ void FetchCampaign(string campaignId) {
 			string url = maps["days"][i]["map"]["fileUrl"];
 			campaign_urls.InsertLast(url);
 		}
-	} else {		
+	} else if(current_mode == CampaignMode::Season) {		
 		string response = SendReq("https://trackmania.io/api/officialcampaign/" + campaignId, false);
 		Json::Value maps = Json::Parse(response);
 
@@ -384,6 +394,32 @@ void FetchCampaign(string campaignId) {
 			string url = maps["playlist"][i]["fileUrl"];
 			campaign_urls.InsertLast(url);
 		}
+	} else if(current_mode == CampaignMode::Training) {		
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 01.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 02.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 03.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 04.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 05.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 06.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 07.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 08.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 09.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 10.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 11.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 12.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 13.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 14.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 15.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 16.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 17.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 18.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 19.Map.Gbx");	
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 20.Map.Gbx");
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 21.Map.Gbx");
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 22.Map.Gbx");
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 23.Map.Gbx");
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 24.Map.Gbx");
+		campaign_urls.InsertLast("Campaigns\\Training\\Training - 25.Map.Gbx");
 	}
 }
 
