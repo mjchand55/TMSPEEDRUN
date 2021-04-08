@@ -28,8 +28,6 @@ uint map_counter = 0;
 
 int release_month = 7;
 int release_year = 2020;
-int current_month;
-int current_year;
 
 dictionary months = {
 	{'march2021', "1"}, 
@@ -86,7 +84,6 @@ void Main()
 {	
 	@current_campaign = Campaign();
 	@previous_campaign = Campaign();
-	GenerateMonthDict();
 	auto app = cast<CTrackMania>(GetApp());
 	while (app is null) {
 		yield();
@@ -196,96 +193,7 @@ void RenderInterface() {
 
 		if (UI::BeginTabItem(Icons::CalendarAlt + " Track of the Day")) {
 			UI::BeginChild("Track of the Day");	
-			//TODO make dynamic		
-			if (UI::Button("March 2021")) {
-				print("Starting March 2021 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['march2021']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();					
-			if (UI::Button("February 2021")) {
-				print("Starting February 2021 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['february2021']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("January 2021")) {
-				print("Starting January 2021 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['january2021']));			
-				startnew(StartCampaign);
-
-			}
-			
-			if (UI::Button("December 2020")) {
-				print("Starting December 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['december2020']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("November 2020")) {
-				print("Starting November 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['november2020']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("October 2020")) {
-				print("Starting October 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['october2020']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("September 2020")) {
-				print("Starting September 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['september2020']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("August 2020")) {
-				print("Starting August 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['august2020']));			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();
-			if (UI::Button("July 2020")) {
-				print("Starting July 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['july2020']));			
-				startnew(StartCampaign);
-
-			}
+			DrawTotdButtons();
 			UI::EndChild();
 			UI::EndTabItem();
 		}
@@ -305,20 +213,8 @@ void RenderInterface() {
 			UI::EndTabItem();
 		}
 		if (UI::BeginTabItem(Icons::Table + " All TOTDs")) {
-			UI::BeginChild("All TOTDs");		
-			if (UI::Button("2020")) {
-				print("Starting All TOTDs 2020 speedrun");
-				current_mode = CampaignMode::Totd;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(string(months['july2020']));	
-				current_campaign.campaign_ids.InsertLast(string(months['august2020']));	
-				current_campaign.campaign_ids.InsertLast(string(months['september2020']));	
-				current_campaign.campaign_ids.InsertLast(string(months['october2020']));	
-				current_campaign.campaign_ids.InsertLast(string(months['november2020']));	
-				current_campaign.campaign_ids.InsertLast(string(months['december2020']));			
-				startnew(StartCampaign);
-			}
+			UI::BeginChild("All TOTDs");	
+			DrawAllTotdsButtons();
 			UI::EndChild();
 			UI::EndTabItem();
 		}
@@ -327,40 +223,91 @@ void RenderInterface() {
 	UI::End();
 }
 
-void GenerateMonthDict() {
-	current_month = Text::ParseInt(Time::FormatString("%m"));
-	current_year = Text::ParseInt(Time::FormatString("%Y"));
+void DrawTotdButtons() {
+	int current_month = Text::ParseInt(Time::FormatString("%m"));
+	int current_year = Text::ParseInt(Time::FormatString("%Y"));
 
 	auto diff = current_month - release_month + (12 * (current_year - release_year));
+	int64 current_epoch = Time::get_Stamp() - (Text::ParseInt(Time::FormatString("%d"))*86400);
 	
-	for(int j = diff, dict_counter = 0; j > 0; j--, dict_counter++) {
-		if(dict_counter == 0) {
-			months["july2020"] = "" + j;
+	current_month--; //subtract 1 month, because we can't speedrun the current TOTD month
+	UI::Text("" + current_year);
+	UI::NewLine();
+	for(int i = diff; i > 0; i--) {		
+		if(current_month % 6 != 0) 
+			UI::SameLine();
+		if (UI::Button(Time::FormatString("%B %Y", current_epoch))) {
+			print("Starting " + Time::FormatString("%B %Y", current_epoch) + " speedrun");
+			current_mode = CampaignMode::Totd;
+			previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+			current_campaign.campaign_ids = {};
+			current_campaign.campaign_ids.InsertLast("" + (diff - i + 1));			
+			startnew(StartCampaign);
 		}
-		if(dict_counter == 1) {
-			months["august2020"] = "" + j;
+		current_epoch -= GetDaysInMonthEpoch(current_month, current_year);
+		if(current_month <= 1) {
+			current_month = 12;
+			current_year--;
+			UI::Separator();
+			UI::Text("" + current_year);
+		} else {			
+			current_month--;
 		}
-		if(dict_counter == 2) {
-			months["september2020"] = "" + j;
+	}
+}
+
+int64 GetDaysInMonthEpoch(int month, int year) {
+	int64 secondsInADay = 86400;
+	if(month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12)
+		return 31*secondsInADay;
+	if(month == 4 || month == 6 || month == 9 || month == 11) 
+		return 30*secondsInADay;
+	if(month == 2) {
+		if (year % 4 == 0) {
+			return 29*secondsInADay;
+		} else {
+			return 28*secondsInADay;
 		}
-		if(dict_counter == 3) {
-			months["october2020"] = "" + j;
+	}
+	return 0;
+}
+
+void DrawAllTotdsButtons() {
+	int current_month = Text::ParseInt(Time::FormatString("%m"));
+	int current_year = Text::ParseInt(Time::FormatString("%Y"));
+	int year_counter = current_year - 1; //subtract 1 year, because we can't speedrun the current TOTD year
+
+	auto diff = current_month - release_month + (12 * (current_year - release_year));
+	int64 current_epoch = Time::get_Stamp() - (Text::ParseInt(Time::FormatString("%m"))*2629743) - (Text::ParseInt(Time::FormatString("%d"))*86400);
+	
+	bool release_year = false;
+	for(int i = 0; i < diff; i+=12) {	
+		if(year_counter % 5 != 0) 
+			UI::SameLine();
+		if (UI::Button(Time::FormatString("%Y", current_epoch))) {
+			print("Starting " + Time::FormatString("%Y", current_epoch) + " speedrun");
+			current_mode = CampaignMode::Totd;
+			previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+			current_campaign.campaign_ids = {};
+
+			int january_of_selected_year = 12*(current_year - year_counter) + current_month - 1;
+			if(year_counter == 2020) {
+				january_of_selected_year = diff;
+				release_year = true;
+			}
+			if(release_year) {
+				for(int j = january_of_selected_year; j > january_of_selected_year - 6; j--) {
+					current_campaign.campaign_ids.InsertLast("" + j);			
+				}
+			} else {
+				for(int j = january_of_selected_year; j > january_of_selected_year - 12; j--) {
+					current_campaign.campaign_ids.InsertLast("" + j);			
+				}
+			}
+			startnew(StartCampaign);
 		}
-		if(dict_counter == 4) {
-			months["november2020"] = "" + j;
-		}
-		if(dict_counter == 5) {
-			months["december2020"] = "" + j;
-		}
-		if(dict_counter == 6) {
-			months["january2021"] = "" + j;
-		}
-		if(dict_counter == 7) {
-			months["february2021"] = "" + j;
-		}
-		if(dict_counter == 8) {
-			months["march2021"] = "" + j;
-		}
+		current_epoch -= 12*GetDaysInMonthEpoch(current_month, year_counter);
+		year_counter--;
 	}
 }
 
