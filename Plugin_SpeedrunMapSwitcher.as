@@ -3,7 +3,7 @@
 #category "Interactive"  
 #include "Icons.as"
 #include "Formatting.as"
-#version "1.3.0"
+#version "1.4.0"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
@@ -15,7 +15,8 @@ enum CampaignMode {
 	Idle,
 	Training,
 	Season,
-	Totd
+	Totd,
+	Custom
 }
 
 CampaignMode current_mode = CampaignMode::Idle;
@@ -24,6 +25,8 @@ string summer_2020_campaign_id = "130";
 string fall_2020_campaign_id = "4791";
 string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
+string url = "";
+
 uint map_counter = 0;
 
 int release_month = 7;
@@ -215,6 +218,25 @@ void RenderInterface() {
 		if (UI::BeginTabItem(Icons::Table + " All TOTDs")) {
 			UI::BeginChild("All TOTDs");	
 			DrawAllTotdsButtons();
+			UI::EndChild();
+			UI::EndTabItem();
+		}
+		if (UI::BeginTabItem(Icons::Boxes + " Custom")) {
+			UI::BeginChild("Custom");
+			url = UI::InputText("Enter tm.io url", url, UI::InputTextFlags(UI::InputTextFlags::AutoSelectAll | UI::InputTextFlags::NoUndoRedo));
+			if (UI::Button("Start custom")) {
+				if(url != "" && Regex::IsMatch(url, "(?:https://trackmania.io/#/campaigns/)+\\d+/+\\d+", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript))) {
+					print("Starting custom speedrun");
+					current_mode = CampaignMode::Custom;
+					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+					current_campaign.campaign_ids = {};
+					string campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
+					current_campaign.campaign_ids.InsertLast(campaign_id);							
+					startnew(StartCampaign);
+				} else {
+					print("Unknown campaign");
+				}
+			}
 			UI::EndChild();
 			UI::EndTabItem();
 		}
@@ -412,8 +434,13 @@ void FetchCampaign(string campaignId) {
 			newmap.exchange_id = maps["days"][i]["map"]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
 		}
-	} else if(current_mode == CampaignMode::Season) {		
-		string response = SendReq("https://trackmania.io/api/officialcampaign/" + campaignId, false);
+	} else if(current_mode == CampaignMode::Season || current_mode == CampaignMode::Custom) {
+		string response = "";
+		if(current_mode == CampaignMode::Season) {		
+			response = SendReq("https://trackmania.io/api/officialcampaign/" + campaignId, false);
+		} else {
+			response = SendReq("https://trackmania.io/api/campaign/" + campaignId, false);
+		}
 		Json::Value maps = Json::Parse(response);
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
