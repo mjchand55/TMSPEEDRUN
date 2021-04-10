@@ -3,13 +3,14 @@
 #category "Interactive"  
 #include "Icons.as"
 #include "Formatting.as"
-#version "1.4.0"
+#version "1.5.0"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
 bool preload_cache = false;
 bool download_notification_shown = false;
 bool auto_next_map = true;
+bool map_switch_in_progress = false;
 
 enum CampaignMode {
 	Idle,
@@ -95,8 +96,9 @@ void Main()
 		if(campaign_in_progress) {				
 			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
 			if(preload_cache) {
-				if (playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
-					GoToNextMap();
+				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
+					map_switch_in_progress = true;
+					startnew(GoToNextMap);
 				} else {
 					if(!download_notification_shown) {
 						UI::ShowNotification("Downloading assets for map # " + map_counter + "/" + campaign_maps.get_Length(), 10000);
@@ -104,8 +106,9 @@ void Main()
 					}
 				}
 			}
-			else if(auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::EndRound) {
-				GoToNextMap();
+			else if(!map_switch_in_progress && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
+				map_switch_in_progress = true;
+				startnew(GoToNextMap);
 			}
 		}
 		yield();
@@ -126,6 +129,7 @@ void RenderInterface() {
 		UI::SameLine();
 		if (UI::Button("Abort speedrun")) {
 			campaign_in_progress = false;
+			map_counter = campaign_maps.get_Length();
 			app.BackToMainMenu();
 		}		
 		UI::SameLine();
@@ -223,8 +227,8 @@ void RenderInterface() {
 		}
 		if (UI::BeginTabItem(Icons::Boxes + " Custom")) {
 			UI::BeginChild("Custom");
-			url = UI::InputText("Enter tm.io url", url, UI::InputTextFlags(UI::InputTextFlags::AutoSelectAll | UI::InputTextFlags::NoUndoRedo));
-			if (UI::Button("Start custom")) {
+			url = UI::InputText("Enter trackmania.io url", url, UI::InputTextFlags(UI::InputTextFlags::AutoSelectAll | UI::InputTextFlags::NoUndoRedo));
+			if (UI::Button("Start custom campaign")) {
 				if(url != "" && Regex::IsMatch(url, "(?:https://trackmania.io/#/campaigns/)+\\d+/+\\d+", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript))) {
 					print("Starting custom speedrun");
 					current_mode = CampaignMode::Custom;
@@ -335,6 +339,9 @@ void DrawAllTotdsButtons() {
 
 void GoToNextMap() {
 	if(campaign_in_progress) {
+		if(!preload_cache) {
+			sleep(1000);
+		}
 		CTrackMania@ app = cast<CTrackMania>(GetApp());
 		app.BackToMainMenu();
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
@@ -364,6 +371,7 @@ void GoToNextMap() {
 				current_mode = CampaignMode::Idle;
 			}
 		}
+		map_switch_in_progress = false;
 	}
 }
 
