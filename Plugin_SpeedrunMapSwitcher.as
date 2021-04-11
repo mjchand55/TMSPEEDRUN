@@ -94,7 +94,10 @@ void Main()
 	}
 	while (true) {
 		if(campaign_in_progress) {				
-			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
+			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);			
+			if(playground == null && app.ManiaPlanetScriptAPI.ActiveContext_ClassicDialogDisplayed) {
+				app.BasicDialogs.WaitMessage_Ok();
+			}
 			if(preload_cache) {
 				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
 					map_switch_in_progress = true;
