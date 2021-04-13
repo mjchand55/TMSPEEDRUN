@@ -3,7 +3,7 @@
 #category "Interactive"  
 #include "Icons.as"
 #include "Formatting.as"
-#version "1.6.0"
+#version "1.6.1"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
@@ -127,10 +127,12 @@ void RenderInterface() {
 
 	if (UI::Begin("Speedrun map switcher", menu_visibility)) {		
 		if (UI::Button("Go to next map")) {
+			ClosePauseMenu();
 			startnew(GoToNextMap);
 		}	
 		UI::SameLine();
 		if (UI::Button("Abort speedrun")) {
+			ClosePauseMenu();
 			campaign_in_progress = false;
 			map_counter = campaign_maps.get_Length();
 			app.BackToMainMenu();
@@ -151,6 +153,7 @@ void RenderInterface() {
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast("Training");				
+				ClosePauseMenu();				
 				startnew(StartCampaign);
 			}
 			UI::EndChild();
@@ -164,7 +167,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);				
+				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);					
+				ClosePauseMenu();			
 				startnew(StartCampaign);
 			}
 			UI::SameLine();					
@@ -173,7 +177,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);				
+				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);					
+				ClosePauseMenu();			
 				startnew(StartCampaign);
 
 			}
@@ -183,7 +188,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);			
+				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
+				ClosePauseMenu();			
 				startnew(StartCampaign);
 
 			}
@@ -193,7 +199,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);			
+				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);				
+				ClosePauseMenu();			
 				startnew(StartCampaign);
 
 			}
@@ -217,6 +224,7 @@ void RenderInterface() {
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
 				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
+				ClosePauseMenu();				
 				startnew(StartCampaign);
 			}
 			UI::EndChild();
@@ -238,7 +246,8 @@ void RenderInterface() {
 					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 					current_campaign.campaign_ids = {};
 					string campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
-					current_campaign.campaign_ids.InsertLast(campaign_id);							
+					current_campaign.campaign_ids.InsertLast(campaign_id);				
+					ClosePauseMenu();							
 					startnew(StartCampaign);
 				} else {
 					print("Unknown campaign");
@@ -250,6 +259,16 @@ void RenderInterface() {
 		UI::EndTabBar();
 	}
 	UI::End();
+}
+
+void ClosePauseMenu() {		
+	CTrackMania@ app = cast<CTrackMania>(GetApp());		
+	if(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
+		CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
+		if(playground != null) {
+			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(EInGameMenuResult::Resume);
+		}
+	}
 }
 
 void DrawTotdButtons() {
@@ -270,7 +289,8 @@ void DrawTotdButtons() {
 			current_mode = CampaignMode::Totd;
 			previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 			current_campaign.campaign_ids = {};
-			current_campaign.campaign_ids.InsertLast("" + (diff - i + 1));			
+			current_campaign.campaign_ids.InsertLast("" + (diff - i + 1));				
+			ClosePauseMenu();			
 			startnew(StartCampaign);
 		}
 		current_epoch -= GetDaysInMonthEpoch(current_month, current_year);
@@ -332,7 +352,8 @@ void DrawAllTotdsButtons() {
 				for(int j = january_of_selected_year; j > january_of_selected_year - 12; j--) {
 					current_campaign.campaign_ids.InsertLast("" + j);			
 				}
-			}
+			}				
+			ClosePauseMenu();
 			startnew(StartCampaign);
 		}
 		current_epoch -= 12*GetDaysInMonthEpoch(current_month, year_counter);
@@ -349,8 +370,11 @@ void GoToNextMap() {
 		app.BackToMainMenu();
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
 			yield();
+		}		
+		while(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
+			yield();
 		}
-		if(map_counter < campaign_maps.get_Length()) {		
+		if(map_counter < campaign_maps.get_Length()) {	
 			print("Loading map " + (map_counter+1) + ": " +  StripFormatCodes(campaign_maps[map_counter].name));	
 			app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
 			if(preload_cache) {
