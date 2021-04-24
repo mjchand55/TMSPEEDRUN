@@ -11,13 +11,14 @@ bool preload_cache = false;
 bool download_notification_shown = false;
 bool auto_next_map = true;
 bool map_switch_in_progress = false;
+bool preload_cache_notification_visible = false;
 
 enum CampaignMode {
-	Idle,
-	Training,
-	Season,
-	Totd,
-	Custom
+	Idle = -1,
+	Training = 3,
+	Season = 0,
+	Totd = 1,
+	Custom = 2
 }
 
 CampaignMode current_mode = CampaignMode::Idle;
@@ -52,6 +53,7 @@ class Campaign {
 }
 
 class MapInfo {
+	int campaign_id;
 	string author;
 	string name;
 	int author_score;
@@ -95,8 +97,12 @@ void Main()
 	while (true) {
 		if(campaign_in_progress) {				
 			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);			
-			if(playground == null && app.ManiaPlanetScriptAPI.ActiveContext_ClassicDialogDisplayed) {
-				app.BasicDialogs.WaitMessage_Ok();
+			if(playground == null && !preload_cache_notification_visible && app.ManiaPlanetScriptAPI.ActiveContext_ClassicDialogDisplayed && app.Network.MasterServer.Downloads.get_Length() == 0) {
+				app.BasicDialogs.WaitMessage_Ok();		
+			}
+			if(preload_cache_notification_visible && !app.ManiaPlanetScriptAPI.ActiveContext_ClassicDialogDisplayed) {
+				preload_cache_notification_visible = false;
+				startnew(GoToNextMap);
 			}
 			if(preload_cache) {
 				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
@@ -109,7 +115,7 @@ void Main()
 					}
 				}
 			}
-			else if(!map_switch_in_progress && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
+			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
 				map_switch_in_progress = true;
 				startnew(GoToNextMap);
 			}
@@ -125,7 +131,7 @@ void RenderInterface() {
 	CTrackMania@ app = cast<CTrackMania>(GetApp());
 	UI::SetNextWindowSize(440,240, UI::Cond::FirstUseEver);			
 
-	if (UI::Begin("Speedrun map switcher", menu_visibility)) {		
+	if (UI::Begin("Speedrun map switcher", menu_visibility)) {	
 		if (UI::Button("Go to next map")) {
 			ClosePauseMenu();
 			startnew(GoToNextMap);
@@ -245,8 +251,8 @@ void RenderInterface() {
 					current_mode = CampaignMode::Custom;
 					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 					current_campaign.campaign_ids = {};
-					string campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
-					current_campaign.campaign_ids.InsertLast(campaign_id);				
+					string custom_campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
+					current_campaign.campaign_ids.InsertLast(custom_campaign_id);				
 					ClosePauseMenu();							
 					startnew(StartCampaign);
 				} else {
@@ -388,9 +394,10 @@ void GoToNextMap() {
 			if(preload_cache) {
 				print("Cache downloaded, restarting the campaign for the speedrun");
 				UI::ShowNotification("Restarting the speedrun. Good luck on your run!", 10000);
+				app.ManiaPlanetScriptAPI.Dialog_Message("Preloading cache finished. Click OK to start your speedrun.");
 				preload_cache = false;
+				preload_cache_notification_visible = true;
 				map_counter = 0;
-				GoToNextMap();
 			} else {
 				print("End of campaign");
 				campaign_in_progress = false;
@@ -448,6 +455,7 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["days"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			newmap.campaign_id = maps["days"][i]["campaignid"];
 			newmap.author = maps["days"][i]["map"]["author"];
 			newmap.name = maps["days"][i]["map"]["name"];
 			newmap.author_score = maps["days"][i]["map"]["authorScore"];
@@ -480,6 +488,7 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			newmap.campaign_id = maps["id"];
 			newmap.author = maps["playlist"][i]["author"];
 			newmap.name = maps["playlist"][i]["name"];
 			newmap.author_score = maps["playlist"][i]["authorScore"];
