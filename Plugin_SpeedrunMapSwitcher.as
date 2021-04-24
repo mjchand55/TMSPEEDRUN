@@ -3,7 +3,7 @@
 #category "Interactive"  
 #include "Icons.as"
 #include "Formatting.as"
-#version "1.6.1"
+#version "1.6.2"
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
