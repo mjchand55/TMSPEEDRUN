@@ -3,15 +3,15 @@
 #category "Interactive"  
 #include "Icons.as"
 #include "Formatting.as"
-#version "1.6.2"
+#version "2.0.0"
+#siteid 87
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
 bool preload_cache = false;
-bool download_notification_shown = false;
 bool auto_next_map = true;
-bool map_switch_in_progress = false;
 bool preload_cache_notification_visible = false;
+bool preload_cache_finished = false;
 
 enum CampaignMode {
 	Idle = -1,
@@ -29,7 +29,7 @@ string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
 string url = "";
 
-uint map_counter = 0;
+string attach_id = "PlaySpeedrun";
 
 int release_month = 7;
 int release_year = 2020;
@@ -105,18 +105,11 @@ void Main()
 				startnew(GoToNextMap);
 			}
 			if(preload_cache) {
-				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
-					map_switch_in_progress = true;
+				if (playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::RollingBackgroundIntro)) {
 					startnew(GoToNextMap);
-				} else {
-					if(!download_notification_shown) {
-						UI::ShowNotification("Downloading assets for map # " + map_counter + "/" + campaign_maps.get_Length(), 10000);
-						download_notification_shown = true;
-					}
-				}
+				} 
 			}
-			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
-				map_switch_in_progress = true;
+			else if(!preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish && playground.GameTerminals[0].UISequence_Current != ESGamePlaygroundUIConfig__EUISequence::UIInteraction) {
 				startnew(GoToNextMap);
 			}
 		}
@@ -131,7 +124,7 @@ void RenderInterface() {
 	CTrackMania@ app = cast<CTrackMania>(GetApp());
 	UI::SetNextWindowSize(440,240, UI::Cond::FirstUseEver);			
 
-	if (UI::Begin("Speedrun map switcher", menu_visibility)) {	
+	if (UI::Begin("Speedrun map switcher", menu_visibility)) {		
 		if (UI::Button("Go to next map")) {
 			ClosePauseMenu();
 			startnew(GoToNextMap);
@@ -140,7 +133,6 @@ void RenderInterface() {
 		if (UI::Button("Abort speedrun")) {
 			ClosePauseMenu();
 			campaign_in_progress = false;
-			map_counter = campaign_maps.get_Length();
 			app.BackToMainMenu();
 		}		
 		UI::SameLine();
@@ -267,6 +259,58 @@ void RenderInterface() {
 	UI::End();
 }
 
+CGameUILayer@ RunManiascript(string attach_id, string manialink) {
+	CTrackMania@ app = cast<CTrackMania>(GetApp());
+    CGameManiaAppTitle@ mania_app = app.MenuManager.MenuCustom_CurrentManiaApp;
+    if (mania_app is null) return null;
+    CGameUILayer@ layer = GetUILayer(attach_id);
+    if (layer !is null) mania_app.UILayerDestroy(layer);
+    @layer = mania_app.UILayerCreate();
+    layer.ManialinkPage = manialink;
+    layer.AttachId = attach_id;
+    layer.IsVisible = false;
+    return layer;
+}
+
+CGameUILayer@ GetUILayer(string attach_id) {
+    CTrackMania@ app = cast<CTrackMania>(GetApp());
+    CGameManiaAppTitle@ mania_app = app.MenuManager.MenuCustom_CurrentManiaApp;
+    if (mania_app is null) return null;
+    for (uint i = 0; i < mania_app.UILayers.Length; ++i) {
+        if (mania_app.UILayers[i].AttachId == attach_id) return mania_app.UILayers[i];
+    }
+    return null;
+}
+
+string CreateManialink() { return """
+<script><!--
+    #RequireContext CManiaAppTitleLayer
+    #Include "TextLib" as TL
+	
+
+main() {
+    declare Text[] MapUrls;
+""" + CreateMapListString() + 
+		
+"""
+    SendCustomEvent("Event_UpdateLoadingScreen", ["AI SplitScreen"]);
+
+	declare Text Settings = "<root><setting name=\"S_CampaignId\" value=\" """ +  campaign_maps[0].campaign_id + """ \" type=\"integer\"/><setting name=\"S_CampaignType\" value=\" """ + current_mode + """ \" type=\"integer\"/><setting name=\"S_CampaignIsLive\" value=\"False\" type=\"boolean\"/><setting name=\"S_ClubCampaignTrophiesAreEnabled\" value=\"False\" type=\"boolean\"/><setting name=\"S_DecoImageUrl_Checkpoint\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_DecalSponsor4x1\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen16x9\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen8x1\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen16x1\" value=\"\" type=\"text\"/></root>";
+
+    TitleControl.PlayMapList(MapUrls, "TrackMania/TM_Campaign_Local.Script.txt", Settings);
+}
+--></script>
+""";
+}
+
+string CreateMapListString() {
+	string maplist = "";
+	for (uint i = 0; i < campaign_maps.get_Length(); i++) {
+		maplist += "MapUrls.add(\"" + campaign_maps[i].file_url + "\");\n";
+	}
+	return maplist;
+}
+
 void ClosePauseMenu() {		
 	CTrackMania@ app = cast<CTrackMania>(GetApp());		
 	if(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
@@ -369,55 +413,49 @@ void DrawAllTotdsButtons() {
 
 void GoToNextMap() {
 	if(campaign_in_progress) {
-		if(!preload_cache) {
-			sleep(1000);
-		}
+		sleep(1000);
 		CTrackMania@ app = cast<CTrackMania>(GetApp());
-		app.BackToMainMenu();
-		while(!app.ManiaTitleControlScriptAPI.IsReady) {
-			yield();
-		}		
 		while(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
 			yield();
 		}
-		if(map_counter < campaign_maps.get_Length()) {	
-			print("Loading map " + (map_counter+1) + ": " +  StripFormatCodes(campaign_maps[map_counter].name));	
-			app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
-			if(preload_cache) {
-				download_notification_shown = false;
-			} else {
-				UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[map_counter].name) + " (" + (map_counter+1) + "/" + campaign_maps.get_Length() + ")", 10000);
-			}
-			map_counter++;
+		CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);			
+		if(playground == null && !preload_cache_notification_visible && app.ManiaPlanetScriptAPI.ActiveContext_ClassicDialogDisplayed && app.Network.MasterServer.Downloads.get_Length() == 0) {
+			app.BasicDialogs.WaitMessage_Ok();		
+		}
+		if(preload_cache_finished && playground != null && playground.Map.EdChallengeId != campaign_maps[campaign_maps.get_Length()-1].map_uid) {
+			preload_cache_finished = false;
+		}
+		if((playground != null && playground.Map.EdChallengeId != campaign_maps[campaign_maps.get_Length()-1].map_uid) || preload_cache_finished) {	
+			app.Network.PlaygroundClientScriptAPI.RequestNextMap();
 		}
 		else {
-			if(preload_cache) {
+			if(preload_cache && playground != null && playground.Map.EdChallengeId == campaign_maps[campaign_maps.get_Length()-1].map_uid) {
 				print("Cache downloaded, restarting the campaign for the speedrun");
-				UI::ShowNotification("Restarting the speedrun. Good luck on your run!", 10000);
 				app.ManiaPlanetScriptAPI.Dialog_Message("Preloading cache finished. Click OK to start your speedrun.");
 				preload_cache = false;
 				preload_cache_notification_visible = true;
-				map_counter = 0;
-			} else {
+				preload_cache_finished = true;
+			} 
+			else if(!preload_cache_notification_visible){
 				print("End of campaign");
 				campaign_in_progress = false;
 				preload_cache = false;
 				current_mode = CampaignMode::Idle;
+				app.BackToMainMenu();
 			}
 		}
-		map_switch_in_progress = false;
 	}
 }
 
 void StartCampaign() {	
-	if(current_campaign.campaign_ids.get_Length() > 0) {	
-		map_counter = 0;
+	if(current_campaign.campaign_ids.get_Length() > 0) {
 		CTrackMania@ app = cast<CTrackMania>(GetApp());
 		app.BackToMainMenu();
 		while(!app.ManiaTitleControlScriptAPI.IsReady) {
 			yield();
 		}
 		bool use_cache = true;
+		preload_cache_finished = false;
 		if(current_campaign.campaign_ids.get_Length() == previous_campaign.campaign_ids.get_Length()) {
 			for(uint j = 0; j < current_campaign.campaign_ids.get_Length(); j++) {
 				if(current_campaign.campaign_ids[j] != previous_campaign.campaign_ids[j]) {
@@ -438,12 +476,7 @@ void StartCampaign() {
 				FetchCampaign(current_campaign.campaign_ids[i]);
 			}			
 		}		
-		print("Loading map " + (map_counter+1) + ": " +  StripFormatCodes(campaign_maps[map_counter].name));	
-		app.ManiaTitleControlScriptAPI.PlayMap(campaign_maps[map_counter].file_url, "", "");
-		if(!preload_cache) {
-			UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[map_counter].name) + " (" + (map_counter+1) + "/" + campaign_maps.get_Length() + ")", 10000);
-		}
-		map_counter++;
+		RunManiascript(attach_id, CreateManialink());
 		campaign_in_progress = true;
 	}
 }
@@ -488,7 +521,8 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
-			newmap.campaign_id = maps["id"];
+			//newmap.campaign_id = Text::ParseInt(campaignId);
+			newmap.campaign_id = 0;
 			newmap.author = maps["playlist"][i]["author"];
 			newmap.name = maps["playlist"][i]["name"];
 			newmap.author_score = maps["playlist"][i]["authorScore"];
@@ -512,11 +546,13 @@ void FetchCampaign(string campaignId) {
 		}
 	} else if(current_mode == CampaignMode::Training) {		
 		for (uint i = 1; i <= 25; i++) {
-			MapInfo@ newmap = MapInfo();		
-			newmap.file_url = "Campaigns\\Training\\Training - " + Text::Format("%02d", i) + ".Map.Gbx";
+			MapInfo@ newmap = MapInfo();	
+			newmap.campaign_id = 0;	
+			newmap.file_url = "Campaigns/Training/Training - " + Text::Format("%02d", i) + ".Map.Gbx";
 			newmap.name = "Training - " + Text::Format("%02d", i);
 			campaign_maps.InsertLast(newmap);
 		}
+		campaign_maps[campaign_maps.get_Length()-1].map_uid = "TkyKsOEG7gHqVqjjc3A1Qj5rPgi";
 	}
 }
 
