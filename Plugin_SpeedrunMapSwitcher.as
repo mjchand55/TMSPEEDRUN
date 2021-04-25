@@ -6,6 +6,8 @@
 #version "2.0.0"
 #siteid 87
 
+string version_title = "Speedrun map switcher v2.0.0";
+
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
 bool preload_cache = false;
@@ -127,9 +129,9 @@ void RenderInterface() {
 		return;
 	}
 	CTrackMania@ app = cast<CTrackMania>(GetApp());
-	UI::SetNextWindowSize(440,240, UI::Cond::FirstUseEver);			
+	UI::SetNextWindowSize(700,240, UI::Cond::FirstUseEver);			
 
-	if (UI::Begin("Speedrun map switcher", menu_visibility)) {		
+	if (UI::Begin(version_title, menu_visibility)) {		
 		if (UI::Button("Go to next map")) {
 			if(campaign_in_progress) {
 				ClosePauseMenu();
