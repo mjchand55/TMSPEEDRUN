@@ -28,6 +28,7 @@ string fall_2020_campaign_id = "4791";
 string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
 string url = "";
+string selected_mode = "";
 
 string attach_id = "PlaySpeedrun";
 
@@ -150,7 +151,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Training;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast("Training");				
+				current_campaign.campaign_ids.InsertLast("Training");	
+				selected_mode = "Training";			
 				ClosePauseMenu();				
 				startnew(StartCampaign);
 			}
@@ -165,7 +167,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);					
+				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);		
+				selected_mode = "Spring 2021";						
 				ClosePauseMenu();			
 				startnew(StartCampaign);
 			}
@@ -175,7 +178,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);					
+				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);		
+				selected_mode = "Winter 2021";				
 				ClosePauseMenu();			
 				startnew(StartCampaign);
 
@@ -186,7 +190,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
+				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);
+				selected_mode = "Fall 2020";					
 				ClosePauseMenu();			
 				startnew(StartCampaign);
 
@@ -197,7 +202,8 @@ void RenderInterface() {
 				current_mode = CampaignMode::Season;
 				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);				
+				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
+				selected_mode = "Summer 2020";				
 				ClosePauseMenu();			
 				startnew(StartCampaign);
 
@@ -222,6 +228,7 @@ void RenderInterface() {
 				current_campaign.campaign_ids = {};
 				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
 				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
+				selected_mode = "All seasons 2020";				
 				ClosePauseMenu();				
 				startnew(StartCampaign);
 			}
@@ -293,7 +300,7 @@ main() {
 """ + CreateMapListString() + 
 		
 """
-    SendCustomEvent("Event_UpdateLoadingScreen", ["AI SplitScreen"]);
+    SendCustomEvent("Event_UpdateLoadingScreen", [""" + "\"" + selected_mode + "\"" + """]);
 
 	declare Text Settings = "<root><setting name=\"S_CampaignId\" value=\" """ +  campaign_maps[0].campaign_id + """ \" type=\"integer\"/><setting name=\"S_CampaignType\" value=\" """ + current_mode + """ \" type=\"integer\"/><setting name=\"S_CampaignIsLive\" value=\"False\" type=\"boolean\"/><setting name=\"S_ClubCampaignTrophiesAreEnabled\" value=\"False\" type=\"boolean\"/><setting name=\"S_DecoImageUrl_Checkpoint\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_DecalSponsor4x1\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen16x9\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen8x1\" value=\"\" type=\"text\"/><setting name=\"S_DecoImageUrl_Screen16x1\" value=\"\" type=\"text\"/></root>";
 
@@ -339,7 +346,8 @@ void DrawTotdButtons() {
 			current_mode = CampaignMode::Totd;
 			previous_campaign.campaign_ids = current_campaign.campaign_ids;	
 			current_campaign.campaign_ids = {};
-			current_campaign.campaign_ids.InsertLast("" + (diff - i + 1));				
+			current_campaign.campaign_ids.InsertLast("" + (diff - i + 1));	
+			selected_mode = Time::FormatString("%B %Y", current_epoch);				
 			ClosePauseMenu();			
 			startnew(StartCampaign);
 		}
@@ -402,7 +410,8 @@ void DrawAllTotdsButtons() {
 				for(int j = january_of_selected_year; j > january_of_selected_year - 12; j--) {
 					current_campaign.campaign_ids.InsertLast("" + j);			
 				}
-			}				
+			}
+			selected_mode = Time::FormatString("All TOTDs %Y", current_epoch);	
 			ClosePauseMenu();
 			startnew(StartCampaign);
 		}
@@ -543,6 +552,10 @@ void FetchCampaign(string campaignId) {
 			newmap.submitter_displayname = maps["playlist"][i]["submitterdisplayname"];
 			newmap.exchange_id = maps["playlist"][i]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
+		}
+
+		if(current_mode == CampaignMode::Custom) {			
+			selected_mode = maps["name"];	
 		}
 	} else if(current_mode == CampaignMode::Training) {		
 		for (uint i = 1; i <= 25; i++) {
