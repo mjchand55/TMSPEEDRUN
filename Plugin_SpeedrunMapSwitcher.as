@@ -9,6 +9,7 @@
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
 bool preload_cache = false;
+bool notification_shown = false;
 bool auto_next_map = true;
 bool preload_cache_notification_visible = false;
 bool preload_cache_finished = false;
@@ -29,6 +30,7 @@ string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
 string url = "";
 string selected_mode = "";
+string expected_map_uid = "";
 
 string attach_id = "PlaySpeedrun";
 
@@ -95,10 +97,24 @@ void Main()
 			}
 			if(preload_cache) {
 				if (playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::RollingBackgroundIntro)) {
+					notification_shown = false;
 					startnew(GoToNextMap);
-				} 
+				} else {
+					if(!notification_shown) {
+						UI::ShowNotification("Downloading assets for map # " + (app.Network.NextChallengeIndex+1) + "/" + campaign_maps.get_Length(), 10000);
+						notification_shown = true;
+					}
+				}
 			}
 			else if(!preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish && playground.GameTerminals[0].UISequence_Current != ESGamePlaygroundUIConfig__EUISequence::UIInteraction) {
+				if(playground != null && expected_map_uid == playground.Map.EdChallengeId) {
+					notification_shown = false;
+				}
+				if(!preload_cache && playground.Map.EdChallengeId != campaign_maps[campaign_maps.get_Length()-1].map_uid && !notification_shown) {
+					UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[app.Network.NextChallengeIndex].name) + " (" + (app.Network.NextChallengeIndex+1) + "/" + campaign_maps.get_Length() + ")", 10000);
+					expected_map_uid = campaign_maps[app.Network.NextChallengeIndex].map_uid;
+					notification_shown = true;
+				}
 				startnew(GoToNextMap);
 			}
 		}
@@ -115,8 +131,11 @@ void RenderInterface() {
 
 	if (UI::Begin("Speedrun map switcher", menu_visibility)) {		
 		if (UI::Button("Go to next map")) {
-			ClosePauseMenu();
-			startnew(GoToNextMap);
+			if(campaign_in_progress) {
+				ClosePauseMenu();
+				UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[app.Network.NextChallengeIndex].name) + " (" + (app.Network.NextChallengeIndex+1) + "/" + campaign_maps.get_Length() + ")", 10000);
+				startnew(GoToNextMap);
+			}
 		}	
 		UI::SameLine();
 		if (UI::Button("Abort speedrun")) {
@@ -473,6 +492,9 @@ void StartCampaign() {
 				FetchCampaign(current_campaign.campaign_ids[i]);
 			}			
 		}		
+		if(!preload_cache) {
+			UI::ShowNotification("Track: " + StripFormatCodes(campaign_maps[app.Network.NextChallengeIndex].name) + " (" + (app.Network.NextChallengeIndex+1) + "/" + campaign_maps.get_Length() + ")", 10000);
+		}
 		RunManiascript(attach_id, CreateManialink());
 		campaign_in_progress = true;
 	}
