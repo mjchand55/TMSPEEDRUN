@@ -35,18 +35,6 @@ string attach_id = "PlaySpeedrun";
 int release_month = 7;
 int release_year = 2020;
 
-dictionary months = {
-	{'march2021', "1"}, 
-	{'february2021', "2"}, 
-	{'january2021', "3"}, 
-	{'december2020', "4"}, 
-	{'november2020', "5"}, 
-	{'october2020', "6"}, 
-	{'september2020', "7"}, 
-	{'august2020', "8"}, 
-	{'july2020', "9"}
-};
-
 array<MapInfo@> campaign_maps;
 
 class Campaign {
