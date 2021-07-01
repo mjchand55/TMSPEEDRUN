@@ -7,6 +7,7 @@ bool download_notification_shown = false;
 bool auto_next_map = true;
 bool map_switch_in_progress = false;
 bool preload_cache_notification_visible = false;
+bool seasonal_campaigns_loaded = false;
 
 enum CampaignMode {
 	Idle = -1,
@@ -22,6 +23,7 @@ string summer_2020_campaign_id = "130";
 string fall_2020_campaign_id = "4791";
 string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
+string summer_2021_campaign_id = "12345";
 string url = "";
 string selected_mode = "";
 string expected_map_uid = "";
@@ -32,6 +34,7 @@ int release_month = 7;
 int release_year = 2020;
 
 array<MapInfo@> campaign_maps;
+array<CampaignInfo@> seasonal_campaigns;
 
 class Campaign {
 	array<string> campaign_ids;
@@ -60,6 +63,14 @@ class MapInfo {
 	int exchange_id;
 }
 
+class CampaignInfo {
+	int id;
+	int clubid;
+	string name;
+	int64 timestamp;
+	int mapcount;
+}
+
 Campaign@ current_campaign;
 Campaign@ previous_campaign;
 
@@ -78,6 +89,10 @@ void Main()
 	auto app = cast<CTrackMania>(GetApp());
 	while (app is null) {
 		yield();
+	}
+	if(!seasonal_campaigns_loaded) {
+		FetchSeasonalCampaignIds();
+		seasonal_campaigns_loaded = true;
 	}
 	while (true) {
 		if(campaign_in_progress) {				
@@ -153,54 +168,9 @@ void RenderInterface() {
 			UI::EndTabItem();
 		}
 
-		if (UI::BeginTabItem(Icons::Globe + " Seasonal Campaign")) {
-			if(Permissions::PlayCurrentOfficialQuarterlyCampaign()) {
-				UI::BeginChild("Seasonal Campaign");	
-				if (UI::Button("Spring 2021")) {
-					print("Starting Spring 2021 speedrun");
-					current_mode = CampaignMode::Season;
-					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-					current_campaign.campaign_ids = {};
-					current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);					
-					ClosePauseMenu();			
-					startnew(StartCampaign);
-				}
-			}
-			if(Permissions::PlayPastOfficialQuarterlyCampaign()) {
-				UI::SameLine();					
-				if (UI::Button("Winter 2021")) {
-					print("Starting Winter 2021 speedrun");
-					current_mode = CampaignMode::Season;
-					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-					current_campaign.campaign_ids = {};
-					current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);					
-					ClosePauseMenu();			
-					startnew(StartCampaign);
-
-				}
-				
-				if (UI::Button("Fall 2020")) {
-					print("Starting Fall 2020 speedrun");
-					current_mode = CampaignMode::Season;
-					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-					current_campaign.campaign_ids = {};
-					current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
-					ClosePauseMenu();			
-					startnew(StartCampaign);
-
-				}
-				UI::SameLine();					
-				if (UI::Button("Summer 2020")) {
-					print("Starting Summer 2020 speedrun");
-					current_mode = CampaignMode::Season;
-					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-					current_campaign.campaign_ids = {};
-					current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);				
-					ClosePauseMenu();			
-					startnew(StartCampaign);
-
-				}
-			}
+		if (UI::BeginTabItem(Icons::Globe + " Seasonal Campaign")) {	
+			UI::BeginChild("Seasonal Campaign");	
+			DrawSeasonalCampaignButtons();
 			UI::EndChild();
 			UI::EndTabItem();
 		}
@@ -272,6 +242,35 @@ void ClosePauseMenu() {
 		CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
 		if(playground != null) {
 			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(EInGameMenuResult::Resume);
+		}
+	}
+}
+
+void DrawSeasonalCampaignButtons() {
+	int current_year = Text::ParseInt(Time::FormatString("%Y"));
+	bool first_entry = true;
+
+	for(uint i = 0; i < seasonal_campaigns.get_Length(); i++) {		
+		if(seasonal_campaigns[i].name.Contains(""+current_year)) {
+			if(first_entry) {
+				first_entry = false;
+			} else {
+				UI::SameLine();
+			}
+		} else {
+			current_year--;
+		}
+		if((i == 0 && Permissions::PlayCurrentOfficialQuarterlyCampaign()) || (i > 0 && Permissions::PlayPastOfficialQuarterlyCampaign())) 
+		{
+			if (UI::Button(seasonal_campaigns[i].name)) {
+				print("Starting " + seasonal_campaigns[i].name + " speedrun");
+				current_mode = CampaignMode::Season;
+				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+				current_campaign.campaign_ids = {};
+				current_campaign.campaign_ids.InsertLast("" + seasonal_campaigns[i].id);				
+				ClosePauseMenu();			
+				startnew(StartCampaign);
+			}
 		}
 	}
 }
@@ -449,6 +448,24 @@ void StartCampaign() {
 		}
 		map_counter++;
 		campaign_in_progress = true;
+	}
+}
+
+void FetchSeasonalCampaignIds() {
+	string response = SendReq("https://trackmania.io/api/campaigns/0?sort=popularity", false);
+	Json::Value campaigns = Json::Parse(response);
+	
+	for (uint i = 0; i < campaigns["campaigns"].get_Length(); i++) {
+		int campaign_clubid = campaigns["campaigns"][i]["clubid"];
+		if(campaign_clubid == 0) {
+			CampaignInfo@ campaign_info = CampaignInfo();
+			campaign_info.id = campaigns["campaigns"][i]["id"];
+			campaign_info.clubid = campaigns["campaigns"][i]["clubid"];
+			campaign_info.name = campaigns["campaigns"][i]["name"];
+			campaign_info.timestamp = campaigns["campaigns"][i]["timestamp"];
+			campaign_info.mapcount = campaigns["campaigns"][i]["mapcount"];
+			seasonal_campaigns.InsertLast(campaign_info);
+		}
 	}
 }
 
