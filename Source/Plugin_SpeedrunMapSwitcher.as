@@ -44,6 +44,7 @@ class MapInfo {
 	int campaign_id;
 	string author;
 	string name;
+	string map_type;
 	int author_score;
 	int gold_score;
 	int silver_score;
@@ -58,9 +59,25 @@ class MapInfo {
 	string timestamp;
 	string file_url;
 	string thumbnail_url;
-	string author_displayname;
-	string submitter_displayname;
+	PlayerInfo@ author_player;
+	PlayerInfo@ submitter_player;
 	int exchange_id;
+}
+
+class PlayerInfo {
+	string name;
+	string tag;
+	string id;
+	MetaInfo@ meta_info;
+}
+
+class MetaInfo {
+	string vanity;
+	string comment;
+	bool nadeo;
+	string twitch;
+	string youtube; 
+	string twitter;
 }
 
 class CampaignInfo {
@@ -105,7 +122,7 @@ void Main()
 				startnew(GoToNextMap);
 			}
 			if(preload_cache) {
-				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
+				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Intro)) {
 					map_switch_in_progress = true;
 					startnew(GoToNextMap);
 				} else {
@@ -115,7 +132,7 @@ void Main()
 					}
 				}
 			}
-			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
+			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Finish) {
 				map_switch_in_progress = true;
 				startnew(GoToNextMap);
 			}
@@ -241,7 +258,7 @@ void ClosePauseMenu() {
 	if(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
 		CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
 		if(playground != null) {
-			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(EInGameMenuResult::Resume);
+			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(CGameScriptHandlerPlaygroundInterface::EInGameMenuResult::Resume);
 		}
 	}
 }
@@ -476,6 +493,10 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["days"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			@newmap.author_player = PlayerInfo();
+			@newmap.author_player.meta_info = MetaInfo();
+			@newmap.submitter_player = PlayerInfo();
+			@newmap.submitter_player.meta_info = MetaInfo();
 			newmap.campaign_id = maps["days"][i]["campaignid"];
 			newmap.author = maps["days"][i]["map"]["author"];
 			newmap.name = maps["days"][i]["map"]["name"];
@@ -492,9 +513,7 @@ void FetchCampaign(string campaignId) {
 			newmap.submitter = maps["days"][i]["map"]["submitter"];
 			newmap.timestamp = maps["days"][i]["map"]["timestamp"];
 			newmap.file_url = maps["days"][i]["map"]["fileUrl"];
-			newmap.thumbnail_url = maps["days"][i]["map"]["thumbnailUrl"];
-			newmap.author_displayname = maps["days"][i]["map"]["authordisplayname"];
-			newmap.submitter_displayname = maps["days"][i]["map"]["submitterdisplayname"];
+			newmap.thumbnail_url = maps["days"][i]["map"]["thumbnailUrl"];					
 			newmap.exchange_id = maps["days"][i]["map"]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
 		}
@@ -509,6 +528,10 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			@newmap.author_player = PlayerInfo();
+			@newmap.author_player.meta_info = MetaInfo();
+			@newmap.submitter_player = PlayerInfo();
+			@newmap.submitter_player.meta_info = MetaInfo();
 			newmap.campaign_id = maps["id"];
 			newmap.author = maps["playlist"][i]["author"];
 			newmap.name = maps["playlist"][i]["name"];
@@ -526,8 +549,6 @@ void FetchCampaign(string campaignId) {
 			newmap.timestamp = maps["playlist"][i]["timestamp"];
 			newmap.file_url = maps["playlist"][i]["fileUrl"];
 			newmap.thumbnail_url = maps["playlist"][i]["thumbnailUrl"];
-			newmap.author_displayname = maps["playlist"][i]["authordisplayname"];
-			newmap.submitter_displayname = maps["playlist"][i]["submitterdisplayname"];
 			newmap.exchange_id = maps["playlist"][i]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
 		}
