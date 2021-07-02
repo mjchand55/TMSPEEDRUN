@@ -6,7 +6,7 @@ category = "Speedrunning"
 blocks = [ "Speedrunning_Test" ]
 
 siteid = 87
-version = "1.7.0"
+version = "1.7.1"
 
 perms = "paid"
 

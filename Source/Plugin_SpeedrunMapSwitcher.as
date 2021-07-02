@@ -1,4 +1,4 @@
-string version_title = "Speedrun map switcher v1.7.0";
+string version_title = "Speedrun map switcher v1.7.1";
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
