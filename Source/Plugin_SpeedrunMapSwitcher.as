@@ -1,9 +1,4 @@
-#name "Speedrun map switcher"
-#author "Glocom"
-#category "Interactive"  
-#include "Icons.as"
-#include "Formatting.as"
-#version "1.6.2"
+string version_title = "Speedrun map switcher v1.7.1";
 
 bool menu_visibility = false; 
 bool campaign_in_progress = false;
@@ -12,6 +7,7 @@ bool download_notification_shown = false;
 bool auto_next_map = true;
 bool map_switch_in_progress = false;
 bool preload_cache_notification_visible = false;
+bool seasonal_campaigns_loaded = false;
 
 enum CampaignMode {
 	Idle = -1,
@@ -27,26 +23,18 @@ string summer_2020_campaign_id = "130";
 string fall_2020_campaign_id = "4791";
 string winter_2021_campaign_id = "6151";
 string spring_2021_campaign_id = "8449";
+string summer_2021_campaign_id = "12345";
 string url = "";
+string selected_mode = "";
+string expected_map_uid = "";
 
 uint map_counter = 0;
 
 int release_month = 7;
 int release_year = 2020;
 
-dictionary months = {
-	{'march2021', "1"}, 
-	{'february2021', "2"}, 
-	{'january2021', "3"}, 
-	{'december2020', "4"}, 
-	{'november2020', "5"}, 
-	{'october2020', "6"}, 
-	{'september2020', "7"}, 
-	{'august2020', "8"}, 
-	{'july2020', "9"}
-};
-
 array<MapInfo@> campaign_maps;
+array<CampaignInfo@> seasonal_campaigns;
 
 class Campaign {
 	array<string> campaign_ids;
@@ -56,6 +44,7 @@ class MapInfo {
 	int campaign_id;
 	string author;
 	string name;
+	string map_type;
 	int author_score;
 	int gold_score;
 	int silver_score;
@@ -70,9 +59,33 @@ class MapInfo {
 	string timestamp;
 	string file_url;
 	string thumbnail_url;
-	string author_displayname;
-	string submitter_displayname;
+	PlayerInfo@ author_player;
+	PlayerInfo@ submitter_player;
 	int exchange_id;
+}
+
+class PlayerInfo {
+	string name;
+	string tag;
+	string id;
+	MetaInfo@ meta_info;
+}
+
+class MetaInfo {
+	string vanity;
+	string comment;
+	bool nadeo;
+	string twitch;
+	string youtube; 
+	string twitter;
+}
+
+class CampaignInfo {
+	int id;
+	int clubid;
+	string name;
+	int64 timestamp;
+	int mapcount;
 }
 
 Campaign@ current_campaign;
@@ -94,6 +107,10 @@ void Main()
 	while (app is null) {
 		yield();
 	}
+	if(!seasonal_campaigns_loaded) {
+		FetchSeasonalCampaignIds();
+		seasonal_campaigns_loaded = true;
+	}
 	while (true) {
 		if(campaign_in_progress) {				
 			CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);			
@@ -105,7 +122,7 @@ void Main()
 				startnew(GoToNextMap);
 			}
 			if(preload_cache) {
-				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Intro)) {
+				if (!map_switch_in_progress && playground != null && playground.GameTerminals.Length > 0 && (playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Playing || playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Intro)) {
 					map_switch_in_progress = true;
 					startnew(GoToNextMap);
 				} else {
@@ -115,7 +132,7 @@ void Main()
 					}
 				}
 			}
-			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == ESGamePlaygroundUIConfig__EUISequence::Finish) {
+			else if(!map_switch_in_progress && !preload_cache_notification_visible && auto_next_map && playground != null && playground.GameTerminals.Length > 0 && playground.GameTerminals[0].UISequence_Current == CGameTerminal::ESGamePlaygroundUIConfig__EUISequence::Finish) {
 				map_switch_in_progress = true;
 				startnew(GoToNextMap);
 			}
@@ -129,14 +146,16 @@ void RenderInterface() {
 		return;
 	}
 	CTrackMania@ app = cast<CTrackMania>(GetApp());
-	UI::SetNextWindowSize(440,240, UI::Cond::FirstUseEver);			
+	UI::SetNextWindowSize(700,240, UI::Cond::FirstUseEver);			
 
-	if (UI::Begin("Speedrun map switcher", menu_visibility)) {	
-		if (UI::Button("Go to next map")) {
-			ClosePauseMenu();
-			startnew(GoToNextMap);
+	if (UI::Begin(version_title, menu_visibility)) {	
+		if(campaign_in_progress) {	
+			if (UI::Button("Go to next map")) {
+				ClosePauseMenu();
+				startnew(GoToNextMap);
+			}			
+			UI::SameLine();
 		}	
-		UI::SameLine();
 		if (UI::Button("Abort speedrun")) {
 			ClosePauseMenu();
 			campaign_in_progress = false;
@@ -166,101 +185,68 @@ void RenderInterface() {
 			UI::EndTabItem();
 		}
 
-		if (UI::BeginTabItem(Icons::Globe + " Seasonal Campaign")) {
+		if (UI::BeginTabItem(Icons::Globe + " Seasonal Campaign")) {	
 			UI::BeginChild("Seasonal Campaign");	
-			if (UI::Button("Spring 2021")) {
-				print("Starting Spring 2021 speedrun");
-				current_mode = CampaignMode::Season;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(spring_2021_campaign_id);					
-				ClosePauseMenu();			
-				startnew(StartCampaign);
-			}
-			UI::SameLine();					
-			if (UI::Button("Winter 2021")) {
-				print("Starting Winter 2021 speedrun");
-				current_mode = CampaignMode::Season;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(winter_2021_campaign_id);					
-				ClosePauseMenu();			
-				startnew(StartCampaign);
-
-			}
-			
-			if (UI::Button("Fall 2020")) {
-				print("Starting Fall 2020 speedrun");
-				current_mode = CampaignMode::Season;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
-				ClosePauseMenu();			
-				startnew(StartCampaign);
-
-			}
-			UI::SameLine();					
-			if (UI::Button("Summer 2020")) {
-				print("Starting Summer 2020 speedrun");
-				current_mode = CampaignMode::Season;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);				
-				ClosePauseMenu();			
-				startnew(StartCampaign);
-
-			}
+			DrawSeasonalCampaignButtons();
 			UI::EndChild();
 			UI::EndTabItem();
 		}
 
-		if (UI::BeginTabItem(Icons::CalendarAlt + " Track of the Day")) {
-			UI::BeginChild("Track of the Day");	
-			DrawTotdButtons();
-			UI::EndChild();
-			UI::EndTabItem();
+		if(Permissions::PlayCurrentOfficialMonthlyCampaign() && Permissions::PlayPastOfficialMonthlyCampaign()) {		
+			if (UI::BeginTabItem(Icons::CalendarAlt + " Track of the Day")) {
+				UI::BeginChild("Track of the Day");	
+				DrawTotdButtons();
+				UI::EndChild();
+				UI::EndTabItem();
+			}
 		}
 
-		if (UI::BeginTabItem(Icons::Trophy + " All Seasons")) {
-			UI::BeginChild("All Seasons");
-			if (UI::Button("2020")) {
-				print("Starting All Seasons 2020 speedrun");	
-				current_mode = CampaignMode::Season;
-				previous_campaign.campaign_ids = current_campaign.campaign_ids;			
-				current_campaign.campaign_ids = {};
-				current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
-				current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
-				ClosePauseMenu();				
-				startnew(StartCampaign);
-			}
-			UI::EndChild();
-			UI::EndTabItem();
-		}
-		if (UI::BeginTabItem(Icons::Table + " All TOTDs")) {
-			UI::BeginChild("All TOTDs");	
-			DrawAllTotdsButtons();
-			UI::EndChild();
-			UI::EndTabItem();
-		}
-		if (UI::BeginTabItem(Icons::Boxes + " Custom")) {
-			UI::BeginChild("Custom");
-			url = UI::InputText("Enter trackmania.io url", url, UI::InputTextFlags(UI::InputTextFlags::AutoSelectAll | UI::InputTextFlags::NoUndoRedo));
-			if (UI::Button("Start custom campaign")) {
-				if(url != "" && Regex::IsMatch(url, "(?:https://trackmania.io/#/campaigns/)+\\d+/+\\d+", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript))) {
-					print("Starting custom speedrun");
-					current_mode = CampaignMode::Custom;
-					previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+		if(Permissions::PlayPastOfficialQuarterlyCampaign()) {
+			if (UI::BeginTabItem(Icons::Trophy + " All Seasons")) {
+				UI::BeginChild("All Seasons");
+				if (UI::Button("2020")) {
+					print("Starting All Seasons 2020 speedrun");	
+					current_mode = CampaignMode::Season;
+					previous_campaign.campaign_ids = current_campaign.campaign_ids;			
 					current_campaign.campaign_ids = {};
-					string custom_campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
-					current_campaign.campaign_ids.InsertLast(custom_campaign_id);				
-					ClosePauseMenu();							
+					current_campaign.campaign_ids.InsertLast(summer_2020_campaign_id);	
+					current_campaign.campaign_ids.InsertLast(fall_2020_campaign_id);				
+					ClosePauseMenu();				
 					startnew(StartCampaign);
-				} else {
-					print("Unknown campaign");
 				}
+				UI::EndChild();
+				UI::EndTabItem();
 			}
-			UI::EndChild();
-			UI::EndTabItem();
+		}
+		if(Permissions::PlayCurrentOfficialMonthlyCampaign() && Permissions::PlayPastOfficialMonthlyCampaign()) {		
+			if (UI::BeginTabItem(Icons::Table + " All TOTDs")) {
+				UI::BeginChild("All TOTDs");	
+				DrawAllTotdsButtons();
+				UI::EndChild();
+				UI::EndTabItem();
+			}
+		}
+		if(Permissions::PlayLocalMap()) {
+			if (UI::BeginTabItem(Icons::Boxes + " Custom")) {
+				UI::BeginChild("Custom");
+				url = UI::InputText("Enter trackmania.io url", url, UI::InputTextFlags(UI::InputTextFlags::AutoSelectAll | UI::InputTextFlags::NoUndoRedo));
+				if (UI::Button("Start custom campaign")) {
+					if(url != "" && Regex::IsMatch(url, "(?:https://trackmania.io/#/campaigns/)+\\d+/+\\d+", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript))) {
+						print("Starting custom speedrun");
+						current_mode = CampaignMode::Custom;
+						previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+						current_campaign.campaign_ids = {};
+						string custom_campaign_id = Regex::Replace(url, "(?:https://trackmania.io/#/campaigns/)", "", Regex::Flags(Regex::Flags::CaseInsensitive | Regex::Flags::ECMAScript));
+						current_campaign.campaign_ids.InsertLast(custom_campaign_id);				
+						ClosePauseMenu();							
+						startnew(StartCampaign);
+					} else {
+						print("Unknown campaign");
+					}
+				}
+				UI::EndChild();
+				UI::EndTabItem();
+			}
 		}
 		UI::EndTabBar();
 	}
@@ -272,7 +258,36 @@ void ClosePauseMenu() {
 	if(app.ManiaPlanetScriptAPI.ActiveContext_InGameMenuDisplayed) {
 		CSmArenaClient@ playground = cast<CSmArenaClient>(app.CurrentPlayground);
 		if(playground != null) {
-			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(EInGameMenuResult::Resume);
+			playground.Interface.ManialinkScriptHandler.CloseInGameMenu(CGameScriptHandlerPlaygroundInterface::EInGameMenuResult::Resume);
+		}
+	}
+}
+
+void DrawSeasonalCampaignButtons() {
+	int current_year = Text::ParseInt(Time::FormatString("%Y"));
+	bool first_entry = true;
+
+	for(uint i = 0; i < seasonal_campaigns.get_Length(); i++) {		
+		if(seasonal_campaigns[i].name.Contains(""+current_year)) {
+			if(first_entry) {
+				first_entry = false;
+			} else {
+				UI::SameLine();
+			}
+		} else {
+			current_year--;
+		}
+		if((i == 0 && Permissions::PlayCurrentOfficialQuarterlyCampaign()) || (i > 0 && Permissions::PlayPastOfficialQuarterlyCampaign())) 
+		{
+			if (UI::Button(seasonal_campaigns[i].name)) {
+				print("Starting " + seasonal_campaigns[i].name + " speedrun");
+				current_mode = CampaignMode::Season;
+				previous_campaign.campaign_ids = current_campaign.campaign_ids;	
+				current_campaign.campaign_ids = {};
+				current_campaign.campaign_ids.InsertLast("" + seasonal_campaigns[i].id);				
+				ClosePauseMenu();			
+				startnew(StartCampaign);
+			}
 		}
 	}
 }
@@ -280,16 +295,21 @@ void ClosePauseMenu() {
 void DrawTotdButtons() {
 	int current_month = Text::ParseInt(Time::FormatString("%m"));
 	int current_year = Text::ParseInt(Time::FormatString("%Y"));
-
+	bool first_entry = true;
+	
 	auto diff = current_month - release_month + (12 * (current_year - release_year));
 	int64 current_epoch = Time::get_Stamp() - (Text::ParseInt(Time::FormatString("%d"))*86400);
 	
 	current_month--; //subtract 1 month, because we can't speedrun the current TOTD month
 	UI::Text("" + current_year);
-	UI::NewLine();
 	for(int i = diff; i > 0; i--) {		
-		if(current_month % 6 != 0) 
-			UI::SameLine();
+		if(current_month % 6 != 0) { 
+			if(first_entry) {
+				first_entry = false;
+			} else {
+				UI::SameLine();
+			}
+		}
 		if (UI::Button(Time::FormatString("%B %Y", current_epoch))) {
 			print("Starting " + Time::FormatString("%B %Y", current_epoch) + " speedrun");
 			current_mode = CampaignMode::Totd;
@@ -448,6 +468,24 @@ void StartCampaign() {
 	}
 }
 
+void FetchSeasonalCampaignIds() {
+	string response = SendReq("https://trackmania.io/api/campaigns/0?sort=popularity", false);
+	Json::Value campaigns = Json::Parse(response);
+	
+	for (uint i = 0; i < campaigns["campaigns"].get_Length(); i++) {
+		int campaign_clubid = campaigns["campaigns"][i]["clubid"];
+		if(campaign_clubid == 0) {
+			CampaignInfo@ campaign_info = CampaignInfo();
+			campaign_info.id = campaigns["campaigns"][i]["id"];
+			campaign_info.clubid = campaigns["campaigns"][i]["clubid"];
+			campaign_info.name = campaigns["campaigns"][i]["name"];
+			campaign_info.timestamp = campaigns["campaigns"][i]["timestamp"];
+			campaign_info.mapcount = campaigns["campaigns"][i]["mapcount"];
+			seasonal_campaigns.InsertLast(campaign_info);
+		}
+	}
+}
+
 void FetchCampaign(string campaignId) {
 	if(current_mode == CampaignMode::Totd) {
 		string response = SendReq("https://trackmania.io/api/totd/" + campaignId, false);
@@ -455,6 +493,10 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["days"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			@newmap.author_player = PlayerInfo();
+			@newmap.author_player.meta_info = MetaInfo();
+			@newmap.submitter_player = PlayerInfo();
+			@newmap.submitter_player.meta_info = MetaInfo();
 			newmap.campaign_id = maps["days"][i]["campaignid"];
 			newmap.author = maps["days"][i]["map"]["author"];
 			newmap.name = maps["days"][i]["map"]["name"];
@@ -471,9 +513,7 @@ void FetchCampaign(string campaignId) {
 			newmap.submitter = maps["days"][i]["map"]["submitter"];
 			newmap.timestamp = maps["days"][i]["map"]["timestamp"];
 			newmap.file_url = maps["days"][i]["map"]["fileUrl"];
-			newmap.thumbnail_url = maps["days"][i]["map"]["thumbnailUrl"];
-			newmap.author_displayname = maps["days"][i]["map"]["authordisplayname"];
-			newmap.submitter_displayname = maps["days"][i]["map"]["submitterdisplayname"];
+			newmap.thumbnail_url = maps["days"][i]["map"]["thumbnailUrl"];					
 			newmap.exchange_id = maps["days"][i]["map"]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
 		}
@@ -488,6 +528,10 @@ void FetchCampaign(string campaignId) {
 
 		for (uint i = 0; i < maps["playlist"].get_Length(); i++) {
 			MapInfo@ newmap = MapInfo();
+			@newmap.author_player = PlayerInfo();
+			@newmap.author_player.meta_info = MetaInfo();
+			@newmap.submitter_player = PlayerInfo();
+			@newmap.submitter_player.meta_info = MetaInfo();
 			newmap.campaign_id = maps["id"];
 			newmap.author = maps["playlist"][i]["author"];
 			newmap.name = maps["playlist"][i]["name"];
@@ -505,14 +549,13 @@ void FetchCampaign(string campaignId) {
 			newmap.timestamp = maps["playlist"][i]["timestamp"];
 			newmap.file_url = maps["playlist"][i]["fileUrl"];
 			newmap.thumbnail_url = maps["playlist"][i]["thumbnailUrl"];
-			newmap.author_displayname = maps["playlist"][i]["authordisplayname"];
-			newmap.submitter_displayname = maps["playlist"][i]["submitterdisplayname"];
 			newmap.exchange_id = maps["playlist"][i]["exchangeid"];
 			campaign_maps.InsertLast(newmap);
 		}
 	} else if(current_mode == CampaignMode::Training) {		
 		for (uint i = 1; i <= 25; i++) {
-			MapInfo@ newmap = MapInfo();		
+			MapInfo@ newmap = MapInfo();	
+			newmap.campaign_id = 3;					
 			newmap.file_url = "Campaigns\\Training\\Training - " + Text::Format("%02d", i) + ".Map.Gbx";
 			newmap.name = "Training - " + Text::Format("%02d", i);
 			campaign_maps.InsertLast(newmap);

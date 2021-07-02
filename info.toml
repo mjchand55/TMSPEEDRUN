@@ -1,0 +1,17 @@
+[meta]
+name = "Speedrun map switcher"
+author = "Glocom"
+category = "Speedrunning"
+
+blocks = [ "Speedrunning_Test" ]
+
+siteid = 87
+version = "1.7.1"
+
+perms = "paid"
+
+[game]
+min_version = "2020-12-25"
+
+[script]
+imports = [ "Icons.as", "Formatting.as", "Permissions.as" ]
